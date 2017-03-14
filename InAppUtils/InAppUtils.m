@@ -119,7 +119,8 @@ restoreCompletedTransactionsFailedWithError:(NSError *)error
               NSDictionary *purchase = @{
                 @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
                 @"transactionIdentifier": transaction.transactionIdentifier,
-                @"productIdentifier": transaction.payment.productIdentifier
+                @"productIdentifier": transaction.payment.productIdentifier,
+                @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
               };
 
                 [productsArrayForJS addObject:purchase];
