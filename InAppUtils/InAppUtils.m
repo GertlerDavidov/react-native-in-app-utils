@@ -1,19 +1,22 @@
 #import "InAppUtils.h"
 #import <StoreKit/StoreKit.h>
-#import <React/RCTLog.h>
-#import <React/RCTUtils.h>
+#import "RCTLog.h"
+#import "RCTUtils.h"
 #import "SKProduct+StringPrice.h"
 
 @implementation InAppUtils
 {
     NSArray *products;
+    NSString *transactionId;
     NSMutableDictionary *_callbacks;
 }
 
 - (instancetype)init
 {
+
     if ((self = [super init])) {
         _callbacks = [[NSMutableDictionary alloc] init];
+        transactionId = false;
         [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
     }
     return self;
@@ -24,14 +27,29 @@
     return dispatch_get_main_queue();
 }
 
+RCT_EXPORT_METHOD(checkPurchases:(RCTResponseSenderBlock)callback)
+{
+  NSLog(@"checkPurchases");
+  NSLog(@"SKPaymentTransactionStatePurchased %@", transactionId);
+  if ( transactionId ){
+    NSLog(@"foundPurchase");
+    callback(@[[NSNull null], transactionId]);
+  } else {
+    NSLog(@"noPurchaseFound");
+    callback(@[@"invalid_product"]);
+  }
+}
+
 RCT_EXPORT_MODULE()
 
 - (void)paymentQueue:(SKPaymentQueue *)queue
  updatedTransactions:(NSArray *)transactions
 {
+    NSLog(@"paymentQueue");
     for (SKPaymentTransaction *transaction in transactions) {
         switch (transaction.transactionState) {
             case SKPaymentTransactionStateFailed: {
+              NSLog(@"SKPaymentTransactionStateFailed ");
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
                 if (callback) {
@@ -44,24 +62,17 @@ RCT_EXPORT_MODULE()
                 break;
             }
             case SKPaymentTransactionStatePurchased: {
+                NSLog(@"SKPaymentTransactionStatePurchased ");
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
-                if (callback) {
-                    NSDictionary *purchase = @{
-                                              @"transactionDate": @(transaction.transactionDate.timeIntervalSince1970 * 1000),
-                                              @"transactionIdentifier": transaction.transactionIdentifier,
-                                              @"productIdentifier": transaction.payment.productIdentifier,
-                                              @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
-                                              };
-                    callback(@[[NSNull null], purchase]);
-                    [_callbacks removeObjectForKey:key];
-                } else {
-                    RCTLogWarn(@"No callback registered for transaction with state purchased.");
-                }
+
+                transactionId = [[transaction transactionReceipt] base64EncodedStringWithOptions:0];
+
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
             }
             case SKPaymentTransactionStateRestored:
+                NSLog(@"SKPaymentTransactionStatePurchased %@", [[transaction transactionReceipt] base64EncodedStringWithOptions:0]);
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
             case SKPaymentTransactionStatePurchasing:
@@ -92,8 +103,6 @@ RCT_EXPORT_METHOD(purchaseProduct:(NSString *)productIdentifier
         SKPayment *payment = [SKPayment paymentWithProduct:product];
         [[SKPaymentQueue defaultQueue] addPayment:payment];
         _callbacks[RCTKeyForInstance(payment.productIdentifier)] = callback;
-    } else {
-        callback(@[@"invalid_product"]);
     }
 }
 
@@ -112,22 +121,19 @@ restoreCompletedTransactionsFailedWithError:(NSError *)error
 
 - (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
 {
+    NSLog(@"paymentQueueRestoreCompletedTransactionsFinished");
     NSString *key = RCTKeyForInstance(@"restoreRequest");
     RCTResponseSenderBlock callback = _callbacks[key];
     if (callback) {
         NSMutableArray *productsArrayForJS = [NSMutableArray array];
         for(SKPaymentTransaction *transaction in queue.transactions){
             if(transaction.transactionState == SKPaymentTransactionStateRestored) {
-                SKPaymentTransaction *originalTransaction = transaction.originalTransaction;
-
-                NSDictionary *purchase = @{
-                    @"originalTransactionDate": @(originalTransaction.transactionDate.timeIntervalSince1970 * 1000),
-                    @"originalTransactionIdentifier": originalTransaction.transactionIdentifier,
-                    @"transactionDate": @(transaction.transactionDate.timeIntervalSince1970 * 1000),
-                    @"transactionIdentifier": transaction.transactionIdentifier,
-                    @"productIdentifier": transaction.payment.productIdentifier,
-                    @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
-                };
+              NSDictionary *purchase = @{
+                @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
+                @"transactionIdentifier": transaction.transactionIdentifier,
+                @"productIdentifier": transaction.payment.productIdentifier,
+                @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
+              };
 
                 [productsArrayForJS addObject:purchase];
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
