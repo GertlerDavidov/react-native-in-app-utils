@@ -26,6 +26,10 @@
 
 RCT_EXPORT_MODULE()
 
+- (NSArray<NSString *> *)supportedEvents {
+    return @[@"TransactionStatePurchased"];
+}
+
 - (void)paymentQueue:(SKPaymentQueue *)queue
  updatedTransactions:(NSArray *)transactions
 {
@@ -46,15 +50,16 @@ RCT_EXPORT_MODULE()
             case SKPaymentTransactionStatePurchased: {
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
+                NSDictionary *purchase = @{
+                                           @"transactionIdentifier": transaction.transactionIdentifier,
+                                           @"productIdentifier": transaction.payment.productIdentifier
+                                           };
                 if (callback) {
-                    NSDictionary *purchase = @{
-                                              @"transactionIdentifier": transaction.transactionIdentifier,
-                                              @"productIdentifier": transaction.payment.productIdentifier
-                                              };
                     callback(@[[NSNull null], purchase]);
                     [_callbacks removeObjectForKey:key];
                 } else {
-                    RCTLogWarn(@"No callback registered for transaction with state purcahsed.");
+                    RCTLogWarn(@"No callback registered for transaction with state purcahsed. Trying to fire event");
+                    [self sendEventWithName:@"TransactionStatePurchased" body:@{@"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]}];
                 }
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
