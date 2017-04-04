@@ -51,15 +51,17 @@ RCT_EXPORT_MODULE()
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
                 NSDictionary *purchase = @{
+                                           @"transactionDate": @(transaction.transactionDate.timeIntervalSince1970 * 1000),
                                            @"transactionIdentifier": transaction.transactionIdentifier,
-                                           @"productIdentifier": transaction.payment.productIdentifier
+                                           @"productIdentifier": transaction.payment.productIdentifier,
+                                           @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
                                            };
                 if (callback) {
                     callback(@[[NSNull null], purchase]);
                     [_callbacks removeObjectForKey:key];
                 } else {
                     RCTLogWarn(@"No callback registered for transaction with state purcahsed. Trying to fire event");
-                    [self sendEventWithName:@"TransactionStatePurchased" body:@{@"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]}];
+                    [self sendEventWithName:@"TransactionStatePurchased" body:@{@"transaction": purchase}];
                 }
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
