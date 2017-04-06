@@ -8,6 +8,7 @@
 {
     NSArray *products;
     NSMutableDictionary *_callbacks;
+    NSDictionary *_waitingPurchase;
 }
 
 - (instancetype)init
@@ -46,15 +47,19 @@ RCT_EXPORT_MODULE()
             case SKPaymentTransactionStatePurchased: {
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
+                NSDictionary *purchase = @{
+                                           @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
+                                           @"transactionIdentifier": transaction.transactionIdentifier,
+                                           @"productIdentifier": transaction.payment.productIdentifier,
+                                           @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
+                                           };
                 if (callback) {
-                    NSDictionary *purchase = @{
-                                              @"transactionIdentifier": transaction.transactionIdentifier,
-                                              @"productIdentifier": transaction.payment.productIdentifier
-                                              };
+                    
                     callback(@[[NSNull null], purchase]);
                     [_callbacks removeObjectForKey:key];
                 } else {
-                    RCTLogWarn(@"No callback registered for transaction with state purcahsed.");
+                    RCTLogWarn(@"No callback registered for transaction with state purcahsed. Saving to waitingTransactionReceipt");
+                    _waitingPurchase = purchase;
                 }
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
@@ -74,6 +79,18 @@ RCT_EXPORT_MODULE()
     }
 }
 
+RCT_EXPORT_METHOD(getWaitingPurchase:(RCTResponseSenderBlock)callback)
+{
+    NSLog(@"getWaitingPurchase");
+    if ( _waitingPurchase ){
+        NSLog(@"foundTransaction %@", _waitingPurchase[@"transactionReceipt"]);
+        callback(@[[NSNull null], _waitingPurchase]);
+    } else {
+        NSLog(@"didntFoundWaitingPurchase");
+        callback(@[@"didntFoundWaitingPurchase"]);
+    }
+}
+
 RCT_EXPORT_METHOD(purchaseProduct:(NSString *)productIdentifier
                   callback:(RCTResponseSenderBlock)callback)
 {
@@ -85,7 +102,7 @@ RCT_EXPORT_METHOD(purchaseProduct:(NSString *)productIdentifier
             break;
         }
     }
-
+    
     if(product) {
         SKPayment *payment = [SKPayment paymentWithProduct:product];
         [[SKPaymentQueue defaultQueue] addPayment:payment];
@@ -116,12 +133,13 @@ restoreCompletedTransactionsFailedWithError:(NSError *)error
         NSMutableArray *productsArrayForJS = [NSMutableArray array];
         for(SKPaymentTransaction *transaction in queue.transactions){
             if(transaction.transactionState == SKPaymentTransactionStateRestored) {
-              NSDictionary *purchase = @{
-                @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
-                @"transactionIdentifier": transaction.transactionIdentifier,
-                @"productIdentifier": transaction.payment.productIdentifier
-              };
-
+                NSDictionary *purchase = @{
+                                           @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
+                                           @"transactionIdentifier": transaction.transactionIdentifier,
+                                           @"productIdentifier": transaction.payment.productIdentifier,
+                                           @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
+                                           };
+                
                 [productsArrayForJS addObject:purchase];
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
             }
@@ -159,9 +177,9 @@ RCT_EXPORT_METHOD(receiptData:(RCTResponseSenderBlock)callback)
     NSURL *receiptUrl = [[NSBundle mainBundle] appStoreReceiptURL];
     NSData *receiptData = [NSData dataWithContentsOfURL:receiptUrl];
     if (!receiptData) {
-      callback(@[@"not_available"]);
+        callback(@[@"not_available"]);
     } else {
-      callback(@[[NSNull null], [receiptData base64EncodedStringWithOptions:0]]);
+        callback(@[[NSNull null], [receiptData base64EncodedStringWithOptions:0]]);
     }
 }
 
