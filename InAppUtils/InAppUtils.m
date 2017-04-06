@@ -84,7 +84,8 @@ RCT_EXPORT_METHOD(getWaitingPurchase:(RCTResponseSenderBlock)callback)
     NSLog(@"getWaitingPurchase");
     if ( _waitingPurchase ){
         NSLog(@"foundTransaction %@", _waitingPurchase[@"transactionReceipt"]);
-        callback(@[[NSNull null], _waitingPurchase]);
+        callback(@[_waitingPurchase[@"transactionReceipt"]]);
+        _waitingPurchase = nil;
     } else {
         NSLog(@"didntFoundWaitingPurchase");
         callback(@[@"didntFoundWaitingPurchase"]);
