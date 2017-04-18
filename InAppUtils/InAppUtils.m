@@ -48,9 +48,9 @@ RCT_EXPORT_MODULE()
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
                 NSDictionary *purchase = @{
-                                           @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
-                                           @"transactionIdentifier": transaction.transactionIdentifier,
-                                           @"productIdentifier": transaction.payment.productIdentifier,
+                                           //@"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
+                                           //@"transactionIdentifier": transaction.transactionIdentifier,
+                                           //@"productIdentifier": transaction.payment.productIdentifier,
                                            @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
                                            };
                 if (callback) {
