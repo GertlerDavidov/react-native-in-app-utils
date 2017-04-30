@@ -47,10 +47,16 @@ RCT_EXPORT_MODULE()
             case SKPaymentTransactionStatePurchased: {
                 NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
                 RCTResponseSenderBlock callback = _callbacks[key];
+                
+                NSData *dataReceipt = [NSData dataWithContentsOfURL:[[NSBundle mainBundle] appStoreReceiptURL]];
+                NSString *receipt = [dataReceipt base64EncodedStringWithOptions:0];
+                
                 NSDictionary *purchase = @{
                                               @"transactionIdentifier": transaction.transactionIdentifier,
-                                              @"productIdentifier": transaction.payment.productIdentifier
+                                              @"productIdentifier": transaction.payment.productIdentifier,
+                                              @"transactionReceipt": receipt
                                               };
+
                 if (callback) {
                     
                     callback(@[[NSNull null], purchase]);
