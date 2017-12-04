@@ -44,18 +44,24 @@ RCT_EXPORT_MODULE()
                 break;
             }
             case SKPaymentTransactionStatePurchased: {
-                NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
-                RCTResponseSenderBlock callback = _callbacks[key];
-                if (callback) {
-                    NSDictionary *purchase = @{
-                                              @"transactionIdentifier": transaction.transactionIdentifier,
-                                              @"productIdentifier": transaction.payment.productIdentifier
-                                              };
-                    callback(@[[NSNull null], purchase]);
-                    [_callbacks removeObjectForKey:key];
-                } else {
-                    RCTLogWarn(@"No callback registered for transaction with state purcahsed.");
-                }
+                //NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
+                //RCTResponseSenderBlock callback = _callbacks[key];
+                //NSDictionary *purchase = @{
+                //                           @"transactionIdentifier": transaction.transactionIdentifier,
+                //                           @"productIdentifier": transaction.payment.productIdentifier
+                //                           };
+                NSDictionary *purchase = @{
+                                           @"originalTransactionIdentifier": transaction.originalTransaction.transactionIdentifier,
+                                           @"transactionIdentifier": transaction.transactionIdentifier,
+                                           @"productIdentifier": transaction.payment.productIdentifier,
+                                           @"transactionReceipt": [[transaction transactionReceipt] base64EncodedStringWithOptions:0]
+                                           };
+                //NSString *transactionId;
+                //transactionId = [[transaction transactionReceipt] base64EncodedStringWithOptions:0];
+                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                [defaults setValue:purchase forKey:@"purchase"];
+                [defaults synchronize];
+
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 break;
             }
@@ -133,7 +139,19 @@ restoreCompletedTransactionsFailedWithError:(NSError *)error
         RCTLogWarn(@"No callback registered for restore product request.");
     }
 }
-
+RCT_EXPORT_METHOD(checkPurchases:(RCTResponseSenderBlock)callback)
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary *purchase = [defaults dictionaryForKey:@"purchase"];
+    if ( purchase ){
+        NSLog(@"foundPurchase");
+        [defaults removeObjectForKey:@"purchase"];
+        callback(@[[NSNull null], purchase]);
+    } else {
+        NSLog(@"noPurchaseFound");
+        callback(@[@"invalid_product"]);
+    }
+}
 RCT_EXPORT_METHOD(restorePurchases:(RCTResponseSenderBlock)callback)
 {
     NSString *restoreRequest = @"restoreRequest";
